@@ -1,0 +1,74 @@
+table_annovar:
+
+- ilk adımda vcfinput parametresi geliyor,
+- bunu bi kere oynattığında bu parametreyi silip tekrar conver2annovar a yeni parametrelerle yolluyor, sc değişkeninde
+- geneOperation metodunda annotate_variation dosyasını oynatmış.
+conver2annovar:
+- 2500 satırlık kısımda covert metodları var convertVCF4 en sona yazılmış
+annotate_variation:
+- annotateQueryByGeneThread medotu gene göre annotate eden yer her threade bunu çalıştırıyor.
+- önce değerleri readUCSCGeneAnnotation metodu ile buluyor.
+- readUCSCGeneAnnotation metodundan ($genedb, $geneidmap, $cdslen, $mrnalen) değerlerini çekiyor.
+- sonra bu değerlerden geçersiz olanları yorumları temizliyor ve sonraki adıma geçiyor.
+- içeride de processNextQueryBatchByGeneThread metodunu çağırıyor uzun olan bu.
+
+readUCSCGeneAnnotation
+
+  db file daki her her satır için :
+    db tipine göre yani (refGene,knownGene,ensGene) satır tab sayısına bakıyor
+    db tipi yoksa 11 den fazla kolonun olduğu db leri kabul etmiyor.
+
+    satırdaki name, chr, ve txstart kolonları arasına # koyarak bir name oluşturuyor
+
+    strand + - den başka birşey ise satırı atlıyor
+
+    exonStart ve exon end kolonlarındaki değerleri array e dolduruyor
+
+    $txstart++; $cdsstart++; map {$_++} @exonstart;
+    Transcription start position, Coding region start ve exon start değerlerini hepsini bir artırıyor, indis numaraları 1 e göre yapmak için
+
+    cdslength mrnalength değerlerini exonStart ve exon End Değerlerinden buluyor
+
+    cdslength mrnalength değerlerini oluşturduğu name ile cdslen mrnalen değerlerinde name ile tutuyor Json objesi gibi
+    tabi bu gen db de daha sonraki satırlarda varsa tekrar hesaplamıyor
+
+    iscoding objesinde de db tablosundaki name ile codlandığını işaretliyor
+
+    // bu kısımı anlamadım
+    // my ($bin1, $bin2) = (int(($txstart - $neargene)/$genomebinsize), int(($txend + $neargene)/$genomebinsize));
+		// for my $nextbin ($bin1 .. $bin2) {
+		// 	push @{$genedb{$chr, $nextbin}}, [$name, $dbstrand, $txstart, $txend, $cdsstart, $cdsend, [@exonstart], [@exonend], $name2];
+		// }
+
+    $geneidmap{$name} = $name2; // oluşturduğu isimdeki gen tabloda hangi gen onu tutuyor
+		$genecount++;
+    $name2count{$name2}++; // dbdeki ismi olan genin sayısı
+    // en son bunu yapıp çıkıyor
+    $cdsstart == $cdsend+1 and $ncgenecount++;			#non-coding gene has the same start and end site
+
+  sonrasında bad gene belirlemesi yapıyor.
+
+  en son doldurduğu objeleri return ediyor
+  return (\%genedb, \%geneidmap, \%cdslen, \%mrnalen);
+
+
+- Kaynaklar:
+###############
+- readUCSCGeneAnnotation metodunda kullanılan UCSC-specific tanım linki
+  - https://genome.ucsc.edu/goldenpath/gbdDescriptions.html
+  -
+    *  table refFlat
+    * "A gene prediction with additional geneName field."
+    *     (
+    *     string  geneName;           "Name of gene as it appears in Genome Browser."
+    *     string  name;               "Name of gene"
+    *     string  chrom;              "Chromosome name"
+    *     char[1] strand;             "+ or - for strand"
+    *     uint    txStart;            "Transcription start position"
+    *     uint    txEnd;              "Transcription end position"
+    *     uint    cdsStart;           "Coding region start"
+    *     uint    cdsEnd;             "Coding region end"
+    *     uint    exonCount;          "Number of exons"
+    *     uint[exonCount] exonStarts; "Exon start positions"
+    *     uint[exonCount] exonEnds;   "Exon end positions"
+    *     )
